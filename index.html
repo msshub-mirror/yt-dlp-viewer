@@ -6,7 +6,7 @@
   <style>
     body { font-family: sans-serif; text-align: center; padding: 2em; }
     input { width: 60%; padding: 0.5em; }
-    button { padding: 0.5em 1em; }
+    button { padding: 0.5em 1em; margin: 0.5em; }
     video { margin-top: 20px; width: 80%; max-width: 720px; }
     #progressContainer {
       margin-top: 20px;
@@ -30,6 +30,7 @@
       margin-left: auto;
       margin-right: auto;
       text-align: left;
+      display: none;
     }
   </style>
 </head>
@@ -37,7 +38,9 @@
   <h1>YouTube動画プレイヤー</h1>
   <h3>読み込みに時間がかかることがあります</h3>
   <input type="text" id="url" placeholder="YouTubeのURLを入力">
-  <button onclick="download()">動画を取得</button>
+  <br>
+  <button id="downloadBtn" onclick="download()">動画を取得</button>
+  <button id="toggleLogBtn" onclick="toggleLog()">ログ表示</button>
 
   <div id="progressContainer">
     <div id="progressBar"></div>
@@ -48,13 +51,27 @@
   <script>
     const API = 'https://yt-dlp-server-c2fo.onrender.com/download';
     const WS_URL = 'wss://yt-dlp-server-c2fo.onrender.com';
+    let inProgress = false;
+    let logVisible = false;
 
     function extractVideoId(url) {
       const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
       return match ? match[1] : null;
     }
 
+    function toggleLog() {
+      logVisible = !logVisible;
+      const log = document.getElementById('log');
+      log.style.display = logVisible ? 'block' : 'none';
+      document.getElementById('toggleLogBtn').textContent = logVisible ? 'ログ非表示' : 'ログ表示';
+    }
+
     function download() {
+      if (inProgress) {
+        alert("ダウンロード処理中です。しばらくお待ちください。");
+        return;
+      }
+
       const url = document.getElementById('url').value;
       const videoId = extractVideoId(url);
       if (!videoId) {
@@ -62,7 +79,12 @@
         return;
       }
 
-      // WebSocketで進捗を受け取る
+      inProgress = true;
+      document.getElementById('downloadBtn').disabled = true;
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('progressContainer').style.display = 'block';
+      document.getElementById('log').textContent = '';
+
       const socket = new WebSocket(WS_URL);
       socket.onopen = () => {
         socket.send(JSON.stringify({ id: videoId }));
@@ -74,9 +96,7 @@
 
         if (msg.progress) {
           log.textContent += msg.progress;
-          document.getElementById('progressContainer').style.display = 'block';
 
-          // 簡易的に % 表示されたらそれを抜き出す
           const percentMatch = msg.progress.match(/(\d{1,3}\.\d)%/);
           if (percentMatch) {
             const percent = Math.min(parseFloat(percentMatch[1]), 100);
@@ -85,6 +105,9 @@
         }
 
         if (msg.done) {
+          inProgress = false;
+          document.getElementById('downloadBtn').disabled = false;
+
           if (msg.success) {
             document.getElementById('result').innerHTML = `
               <h2>ビデオ：</h2>
@@ -109,10 +132,14 @@
       .then(res => res.json())
       .then(data => {
         if (!data.success) {
+          inProgress = false;
+          document.getElementById('downloadBtn').disabled = false;
           document.getElementById('result').textContent = 'エラーが発生しました';
         }
       })
       .catch(err => {
+        inProgress = false;
+        document.getElementById('downloadBtn').disabled = false;
         document.getElementById('result').textContent = 'エラーが発生しました';
         console.error(err);
       });
