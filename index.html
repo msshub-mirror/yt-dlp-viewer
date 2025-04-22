@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>教育動画アップロード＆再生</title>
+  <title>動画再生テスト</title>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 2em; }
     input { width: 60%; padding: 0.5em; }
@@ -11,7 +11,8 @@
   </style>
 </head>
 <body>
-  <h1>教育目的動画プレイヤー</h1>
+  <h1>YouTube動画プレイヤー</h1>
+  <h3>読み込むのに2分くらいかかります</h3>
   <input type="text" id="url" placeholder="YouTubeのURLを入力">
   <button onclick="download()">動画を取得</button>
 
@@ -31,7 +32,7 @@
       .then(data => {
         if (data.videoUrl) {
           document.getElementById('result').innerHTML = `
-            <h2>再生：</h2>
+            <h2>ビデオ：</h2>
             <video controls>
               <source src="https://yt-dlp-server-c2fo.onrender.com${data.videoUrl}" type="video/mp4">
             </video>
