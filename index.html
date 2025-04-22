@@ -8,42 +8,77 @@
     input { width: 60%; padding: 0.5em; }
     button { padding: 0.5em 1em; }
     video { margin-top: 20px; width: 80%; max-width: 720px; }
+    #progress-container {
+      margin-top: 20px;
+      width: 80%;
+      max-width: 500px;
+      height: 20px;
+      background: #eee;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-inline: auto;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #4caf50;
+    }
   </style>
 </head>
 <body>
   <h1>YouTube動画プレイヤー</h1>
-  <h3>読み込むのに2分くらいかかります</h3>
   <input type="text" id="url" placeholder="YouTubeのURLを入力">
   <button onclick="download()">動画を取得</button>
 
+  <div id="progress-container">
+    <div id="progress-bar"></div>
+  </div>
+
+  <div id="status-text">待機中...</div>
   <div id="result"></div>
 
   <script>
-    const API = 'https://yt-dlp-server-c2fo.onrender.com/download'; // ← RenderのAPI URLに差し替え！
+    const API = 'https://yt-dlp-server-c2fo.onrender.com';
 
     function download() {
       const url = document.getElementById('url').value;
-      fetch(API, {
+      document.getElementById('status-text').textContent = '準備中...';
+      document.getElementById('progress-bar').style.width = '0%';
+      document.getElementById('result').innerHTML = '';
+
+      fetch(`${API}/download`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ url })
       })
       .then(res => res.json())
       .then(data => {
-        if (data.videoUrl) {
-          document.getElementById('result').innerHTML = `
-            <h2>ビデオ：</h2>
-            <video controls>
-              <source src="https://yt-dlp-server-c2fo.onrender.com${data.videoUrl}" type="video/mp4">
-            </video>
-          `;
+        if (data.id) {
+          const ws = new WebSocket(`wss://yt-dlp-server-c2fo.onrender.com?id=${data.id}`);
+
+          ws.onmessage = (msg) => {
+            const data = JSON.parse(msg.data);
+            if (data.progress !== undefined) {
+              document.getElementById('progress-bar').style.width = `${data.progress}%`;
+              document.getElementById('status-text').textContent = `ダウンロード中: ${data.progress.toFixed(1)}%`;
+            }
+            if (data.done) {
+              document.getElementById('status-text').textContent = '完了！';
+              document.getElementById('result').innerHTML = `
+                <video controls>
+                  <source src="${API}${data.url}" type="video/mp4">
+                </video>
+              `;
+              ws.close();
+            }
+          };
         } else {
-          document.getElementById('result').textContent = '動画の取得に失敗しました';
+          document.getElementById('status-text').textContent = 'ダウンロードに失敗しました';
         }
       })
       .catch(err => {
-        document.getElementById('result').textContent = 'エラーが発生しました';
         console.error(err);
+        document.getElementById('status-text').textContent = 'エラーが発生しました';
       });
     }
   </script>
