@@ -39,12 +39,11 @@
         } else {
           document.getElementById('result').textContent = '動画の取得に失敗しました';
         }
-      }).catch(err => {
-  err.text().then(text => {
-    document.getElementById('result').textContent = 'エラー詳細: ' + text;
-  });
-});
-
+      })
+      .catch(err => {
+        document.getElementById('result').textContent = 'エラーが発生しました';
+        console.error(err);
+      });
     }
   </script>
 </body>
