@@ -2,91 +2,139 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>YouTube動画ダウンローダー</title>
+  <title>YouTube動画ダウンロード</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding: 2em;
-      background-color: #f9f9f9;
+    :root {
+      --bg-color: #f0f0f5;
+      --text-color: #222;
+      --accent-color: #007bff;
+      --btn-color: #0056b3;
+      --card-color: #fff;
     }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #181818;
+        --text-color: #f0f0f0;
+        --accent-color: #3399ff;
+        --btn-color: #2277cc;
+        --card-color: #252525;
+      }
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding-top: 70px;
+      text-align: center;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background-color: var(--accent-color);
+      color: white;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      padding: 15px 0;
+      z-index: 1000;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 1em;
+    }
+
     input, button {
       padding: 0.6em;
-      margin: 0.5em;
       font-size: 16px;
+      margin: 0.5em;
     }
+
     input {
       width: 60%;
       max-width: 500px;
     }
+
     button {
+      background-color: var(--btn-color);
+      color: white;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
     }
-    video {
-      margin-top: 20px;
-      width: 80%;
-      max-width: 720px;
-    }
+
     #progressContainer {
       margin: 1em auto;
-      width: 80%;
-      max-width: 500px;
-      background: #ddd;
+      width: 100%;
+      background: #ccc;
       height: 20px;
       border-radius: 4px;
       overflow: hidden;
       display: none;
     }
+
     #progressBar {
       height: 100%;
       background: #4caf50;
       width: 0%;
     }
+
     #log {
       white-space: pre-line;
-      font-size: 14px;
-      color: #444;
-      margin-top: 1em;
-      max-width: 80%;
-      margin-left: auto;
-      margin-right: auto;
       text-align: left;
-      display: none;
-      background: #fff;
-      border: 1px solid #ccc;
+      font-size: 14px;
+      margin: 1em auto;
       padding: 1em;
+      max-width: 800px;
+      background: var(--card-color);
       border-radius: 4px;
+      display: none;
     }
-    #videoLink {
+
+    video {
+      width: 100%;
+      max-width: 720px;
       margin-top: 1em;
     }
-    a.button-link {
+
+    .button-link {
       display: inline-block;
+      margin-top: 1em;
       padding: 0.5em 1em;
-      background: #2196f3;
-      color: #fff;
+      background-color: var(--accent-color);
+      color: white;
       text-decoration: none;
       border-radius: 4px;
-      margin-top: 1em;
     }
   </style>
 </head>
 <body>
-  <h1>YouTube動画プレイヤー</h1>
-  <p>動画のダウンロードとキャッシュには時間がかかることがあります。</p>
+  <header>
+    <div class="container">
+      <h1>YouTube動画ダウンロード</h1>
+      <p>動画の取得には時間がかかる場合があります</p>
+    </div>
+  </header>
 
-  <input type="text" id="url" placeholder="YouTubeのURLを入力">
-  <br>
-  <button id="downloadBtn" onclick="download()">動画を取得</button>
-  <button id="toggleLogBtn" onclick="toggleLog()">ログ表示</button>
+  <div class="container">
+    <input type="text" id="url" placeholder="YouTubeのURLを入力">
+    <br>
+    <button id="downloadBtn" onclick="download()">動画を取得</button>
+    <button onclick="toggleLog()" id="toggleLogBtn">ログ表示</button>
 
-  <div id="progressContainer">
-    <div id="progressBar"></div>
+    <div id="progressContainer">
+      <div id="progressBar"></div>
+    </div>
+
+    <div id="log"></div>
+    <div id="result"></div>
+    <div id="videoLink"></div>
   </div>
-
-  <div id="log"></div>
-  <div id="result"></div>
-  <div id="videoLink"></div>
 
   <script>
     const API = 'https://yt-dlp-server-c2fo.onrender.com/download';
@@ -101,14 +149,13 @@
 
     function toggleLog() {
       logVisible = !logVisible;
-      const log = document.getElementById('log');
-      log.style.display = logVisible ? 'block' : 'none';
+      document.getElementById('log').style.display = logVisible ? 'block' : 'none';
       document.getElementById('toggleLogBtn').textContent = logVisible ? 'ログ非表示' : 'ログ表示';
     }
 
     function download() {
       if (inProgress) {
-        alert("ダウンロード処理中です。しばらくお待ちください。");
+        alert("ダウンロード中です。お待ちください。");
         return;
       }
 
@@ -134,14 +181,11 @@
 
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data);
-        const log = document.getElementById('log');
-
         if (msg.progress) {
-          log.textContent += msg.progress;
-
-          const percentMatch = msg.progress.match(/(\d{1,3}\.\d)%/);
-          if (percentMatch) {
-            const percent = Math.min(parseFloat(percentMatch[1]), 100);
+          document.getElementById('log').textContent += msg.progress;
+          const match = msg.progress.match(/(\d{1,3}\.\d)%/);
+          if (match) {
+            const percent = Math.min(parseFloat(match[1]), 100);
             document.getElementById('progressBar').style.width = percent + '%';
           }
         }
@@ -149,18 +193,15 @@
         if (msg.done) {
           inProgress = false;
           document.getElementById('downloadBtn').disabled = false;
+          const videoUrl = `https://yt-dlp-server-c2fo.onrender.com${msg.videoUrl}?t=${Date.now()}`;
 
           if (msg.success) {
-            const videoUrl = `https://yt-dlp-server-c2fo.onrender.com${msg.videoUrl}?t=${Date.now()}`;
             document.getElementById('result').innerHTML = `
-              <h2>ビデオ：</h2>
               <video controls>
                 <source src="${videoUrl}" type="video/mp4">
-              </video>
-            `;
+              </video>`;
             document.getElementById('videoLink').innerHTML = `
-              <a class="button-link" href="${videoUrl}" target="_blank">動画リンクを開く</a>
-            `;
+              <a class="button-link" href="${videoUrl}" target="_blank">動画リンクを開く</a>`;
           } else {
             document.getElementById('result').textContent = '動画の取得に失敗しました';
           }
@@ -172,23 +213,23 @@
 
       fetch(API, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       })
-      .then(res => res.json())
-      .then(data => {
-        if (!data.success) {
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) {
+            inProgress = false;
+            document.getElementById('downloadBtn').disabled = false;
+            document.getElementById('result').textContent = 'エラーが発生しました';
+          }
+        })
+        .catch(err => {
           inProgress = false;
           document.getElementById('downloadBtn').disabled = false;
           document.getElementById('result').textContent = 'エラーが発生しました';
-        }
-      })
-      .catch(err => {
-        inProgress = false;
-        document.getElementById('downloadBtn').disabled = false;
-        document.getElementById('result').textContent = 'エラーが発生しました';
-        console.error(err);
-      });
+          console.error(err);
+        });
     }
   </script>
 </body>
