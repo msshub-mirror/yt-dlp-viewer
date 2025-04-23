@@ -5,29 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>動画ダウンロード</title>
   <style>
-    :root {
-      color-scheme: light dark;
-    }
+    :root { color-scheme: light dark; }
     body {
       font-family: sans-serif;
       margin: 0;
-      padding-top: 70px;
+      padding-top: 50px;
       background-color: #f0f0f5;
       color: #333;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
     @media (prefers-color-scheme: dark) {
-      body {
-        background-color: #121212;
-        color: #eee;
-      }
-      header {
-        background-color: #222;
-      }
-      .input-container input,
-      .input-container button {
+      body { background-color: #121212; color: #eee; }
+      header { background-color: #222; }
+      .input-container input, .input-container button {
         background-color: #333;
         color: #eee;
         border-color: #444;
@@ -38,16 +27,17 @@
       top: 0;
       width: 100%;
       background-color: #007bff;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-      padding: 10px 0;
       display: flex;
       justify-content: center;
       z-index: 1000;
+      flex-direction: column;
     }
     .input-container {
       display: flex;
-      width: 90%;
-      max-width: 600px;
+      padding: 8px;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
     }
     .input-container input {
       flex: 1;
@@ -57,52 +47,61 @@
       border-radius: 4px 0 0 4px;
     }
     .input-container button {
-      padding: 10px 20px;
+      padding: 10px 16px;
       font-size: 16px;
-      background-color: #0056b3;
-      color: white;
       border: none;
       border-radius: 0 4px 4px 0;
       cursor: pointer;
+      background-color: #0056b3;
+      color: white;
     }
     #progressContainer {
-      width: 80%;
-      max-width: 500px;
-      height: 20px;
-      background-color: #ccc;
-      border-radius: 5px;
-      margin-top: 20px;
-      overflow: hidden;
-      display: none;
+      height: 3px;
+      background: #ccc;
+      width: 100%;
     }
     #progressBar {
       height: 100%;
       width: 0%;
       background-color: #28a745;
+      transition: width 0.3s ease;
     }
     #log {
-      white-space: pre-line;
-      margin-top: 1em;
-      max-width: 80%;
+      position: fixed;
+      top: 55px;
+      right: 0;
+      width: 300px;
+      max-height: 90vh;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-size: 13px;
+      padding: 10px;
+      overflow-y: auto;
       display: none;
-      font-size: 14px;
+      z-index: 1001;
+    }
+    #result, #videoLink, #history {
+      max-width: 800px;
+      margin: 1em auto;
+      text-align: center;
     }
     video {
       margin-top: 20px;
-      width: 80%;
+      width: 100%;
       max-width: 720px;
     }
-    #videoLink {
-      margin-top: 10px;
-    }
     .button-link {
-      margin-top: 10px;
       display: inline-block;
+      margin-top: 10px;
       background: #2196f3;
       color: white;
       padding: 0.5em 1em;
-      text-decoration: none;
       border-radius: 4px;
+      text-decoration: none;
+    }
+    .history-item {
+      font-size: 14px;
+      margin: 0.5em 0;
     }
   </style>
 </head>
@@ -113,12 +112,16 @@
       <button onclick="download()" id="downloadBtn">取得</button>
       <button onclick="toggleLog()" id="toggleLogBtn">ログ</button>
     </div>
+    <div id="progressContainer"><div id="progressBar"></div></div>
   </header>
 
-  <div id="progressContainer"><div id="progressBar"></div></div>
   <div id="log"></div>
   <div id="result"></div>
   <div id="videoLink"></div>
+  <div id="history">
+    <h3>再生履歴</h3>
+    <div id="historyList"></div>
+  </div>
 
   <script>
     const API = 'https://yt-dlp-server-c2fo.onrender.com/download';
@@ -133,20 +136,39 @@
 
     function toggleLog() {
       logVisible = !logVisible;
-      document.getElementById('log').style.display = logVisible ? 'block' : 'none';
+      const log = document.getElementById('log');
+      log.style.display = logVisible ? 'block' : 'none';
       document.getElementById('toggleLogBtn').textContent = logVisible ? '非表示' : 'ログ';
+    }
+
+    function addToHistory(videoId, videoUrl) {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      history.unshift({ id: videoId, url: videoUrl, time: new Date().toLocaleString() });
+      localStorage.setItem('history', JSON.stringify(history.slice(0, 10)));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      const list = history.map(item => `
+        <div class="history-item">
+          <a href="${item.url}" target="_blank">${item.id}</a>
+          <span style="color: #888;"> (${item.time})</span>
+        </div>
+      `).join('');
+      document.getElementById('historyList').innerHTML = list || '<p>履歴はありません。</p>';
     }
 
     function download() {
       if (inProgress) {
-        alert("ダウンロード処理中です。お待ちください。");
+        alert("ダウンロード中です。しばらくお待ちください。");
         return;
       }
 
       const url = document.getElementById('url').value;
       const videoId = extractVideoId(url);
       if (!videoId) {
-        alert("YouTubeのURLが正しくありません");
+        alert("正しいYouTubeのURLを入力してください。");
         return;
       }
 
@@ -159,40 +181,45 @@
       document.getElementById('videoLink').innerHTML = '';
 
       const socket = new WebSocket(WS_URL);
-      socket.onopen = () => socket.send(JSON.stringify({ id: videoId }));
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ id: videoId }));
+      };
 
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.progress) {
           document.getElementById('log').textContent += msg.progress;
-          const percentMatch = msg.progress.match(/(\d{1,3}\.\d)%/);
-          if (percentMatch) {
-            document.getElementById('progressBar').style.width = Math.min(parseFloat(percentMatch[1]), 100) + '%';
+          const match = msg.progress.match(/(\d{1,3}\.\d)%/);
+          if (match) {
+            const percent = Math.min(parseFloat(match[1]), 100);
+            document.getElementById('progressBar').style.width = percent + '%';
           }
         }
 
         if (msg.done) {
           inProgress = false;
           document.getElementById('downloadBtn').disabled = false;
-          const videoUrl = `https://yt-dlp-server-c2fo.onrender.com${msg.videoUrl}?t=${Date.now()}`;
+          document.getElementById('progressContainer').style.display = 'none';
+
           if (msg.success) {
+            const videoUrl = `https://yt-dlp-server-c2fo.onrender.com${msg.videoUrl}?t=${Date.now()}`;
             document.getElementById('result').innerHTML = `
               <video controls><source src="${videoUrl}" type="video/mp4"></video>
             `;
             document.getElementById('videoLink').innerHTML = `
               <a href="${videoUrl}" class="button-link" target="_blank">動画リンクを開く</a>
             `;
+            addToHistory(videoId, videoUrl);
           } else {
-            document.getElementById('result').textContent = '動画の取得に失敗しました';
+            document.getElementById('result').textContent = '動画の取得に失敗しました。';
           }
           socket.close();
-          document.getElementById('progressBar').style.width = '100%';
         }
       };
 
       fetch(API, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       })
       .then(res => res.json())
@@ -206,10 +233,12 @@
       .catch(err => {
         inProgress = false;
         document.getElementById('downloadBtn').disabled = false;
-        document.getElementById('result').textContent = 'エラーが発生しました';
+        document.getElementById('result').textContent = '通信エラー';
         console.error(err);
       });
     }
+
+    window.onload = renderHistory;
   </script>
 </body>
 </html>
