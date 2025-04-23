@@ -160,6 +160,7 @@
     </div>
     <div id="progressContainer"><div id="progressBar"></div></div>
   </header>
+  <div id="sideHistory"></div>
 
   <div id="log"></div>
   <div id="result"></div>
@@ -187,12 +188,12 @@
       document.getElementById('toggleLogBtn').textContent = logVisible ? '非表示' : 'ログ';
     }
 
-    function addToHistory(videoId, videoUrl) {
-    const history = JSON.parse(localStorage.getItem('history') || '[]');
-    history.unshift({ id: videoId, time: new Date().toLocaleString() });
-    localStorage.setItem('history', JSON.stringify(history.slice(0, 10)));
-    renderHistory();
-  }
+    function addToHistory(videoId) {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      history.unshift({ id: videoId, time: new Date().toLocaleString() });
+      localStorage.setItem('history', JSON.stringify(history.slice(0, 20)));
+      renderHistory();
+    }
 
   function renderHistory() {
       const history = JSON.parse(localStorage.getItem('history') || '[]');
@@ -223,10 +224,9 @@
   }
 
   function replayFromHistory(videoId) {
-    const fakeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    document.getElementById('url').value = fakeUrl;
-    download();
-  }
+      document.getElementById('url').value = `https://www.youtube.com/watch?v=${videoId}`;
+      download();
+    }
 
     function download() {
       if (inProgress) {
