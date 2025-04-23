@@ -103,10 +103,56 @@
       font-size: 14px;
       margin: 0.5em 0;
     }
+      #sideHistory {
+    position: fixed;
+    top: 50px;
+    left: -260px;
+    width: 260px;
+    height: 100%;
+    background-color: #f5f5f5;
+    border-right: 1px solid #ccc;
+    overflow-y: auto;
+    transition: left 0.3s ease;
+    z-index: 1002;
+  }
+  body.dark #sideHistory {
+    background-color: #1a1a1a;
+    border-color: #333;
+  }
+  #sideHistory.open {
+    left: 0;
+  }
+  #sideToggleBtn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 24px;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    z-index: 1003;
+  }
+  .side-thumb {
+    cursor: pointer;
+    margin: 10px;
+    text-align: center;
+  }
+  .side-thumb img {
+    border-radius: 4px;
+  }
+  .side-thumb span {
+    font-size: 11px;
+    color: #666;
+  }
+  body.dark .side-thumb span {
+    color: #aaa;
+  }
   </style>
 </head>
 <body>
   <header>
+    <button id="sideToggleBtn" onclick="toggleSide()">≡</button>
     <div class="input-container">
       <input type="text" id="url" placeholder="YouTubeのURLを入力">
       <button onclick="download()" id="downloadBtn">取得</button>
@@ -118,19 +164,16 @@
   <div id="log"></div>
   <div id="result"></div>
   <div id="videoLink"></div>
-  <div id="history">
-  <div style="display: flex; justify-content: space-between; align-items: center; max-width: 800px; margin: 0 auto;">
-    <h3 style="margin: 0;">再生履歴</h3>
-    <button onclick="clearHistory()" style="font-size: 14px;">履歴を削除</button>
-  </div>
-  <div id="historyList" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px;"></div>
-</div>
+  
 
   <script>
     const API = 'https://yt-dlp-server-c2fo.onrender.com/download';
     const WS_URL = 'wss://yt-dlp-server-c2fo.onrender.com';
     let inProgress = false;
     let logVisible = false;
+    function toggleSide() {
+      document.getElementById('sideHistory').classList.toggle('open');
+    }
 
     function extractVideoId(url) {
       const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
@@ -152,22 +195,25 @@
   }
 
   function renderHistory() {
-    const history = JSON.parse(localStorage.getItem('history') || '[]');
-    const container = document.getElementById('historyList');
-    if (history.length === 0) {
-      container.innerHTML = '<p>履歴はありません。</p>';
-      return;
-    }
-    container.innerHTML = history.map(item => {
-      const thumb = `https://i.ytimg.com/vi/${item.id}/mqdefault.jpg`;
-      return `
-        <div style="text-align: center; cursor: pointer;" onclick="replayFromHistory('${item.id}')">
-          <img src="${thumb}" width="120" height="90" style="border-radius: 4px;"><br>
-          <span style="font-size: 11px; color: #888;">${item.time}</span>
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      const side = document.getElementById('sideHistory');
+      if (history.length === 0) {
+        side.innerHTML = '<p style="padding: 10px;">履歴はありません</p>';
+        return;
+      }
+      side.innerHTML = `
+        <div style="padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <strong>履歴</strong>
+          <button onclick="clearHistory()" style="font-size: 12px;">削除</button>
         </div>
+        ${history.map(item => `
+          <div class="side-thumb" onclick="replayFromHistory('${item.id}')">
+            <img src="https://i.ytimg.com/vi/${item.id}/mqdefault.jpg" width="120"><br>
+            <span>${item.time}</span>
+          </div>
+        `).join('')}
       `;
-    }).join('');
-  }
+    }
 
   function clearHistory() {
     if (confirm('履歴をすべて削除しますか？')) {
@@ -196,7 +242,9 @@
       }
 
       inProgress = true;
-      document.getElementById('downloadBtn').disabled = true;
+      const btn = document.getElementById('downloadBtn');
+      btn.disabled = true;
+      btn.textContent = '取得中…';
       document.getElementById('progressContainer').style.display = 'block';
       document.getElementById('progressBar').style.width = '0%';
       document.getElementById('log').textContent = '';
@@ -221,7 +269,8 @@
 
         if (msg.done) {
           inProgress = false;
-          document.getElementById('downloadBtn').disabled = false;
+          btn.disabled = false;
+          btn.textContent = '取得';
           document.getElementById('progressContainer').style.display = 'none';
 
           if (msg.success) {
@@ -249,13 +298,15 @@
       .then(data => {
         if (!data.success) {
           inProgress = false;
-          document.getElementById('downloadBtn').disabled = false;
+          btn.disabled = false;
+          btn.textContent = '取得';
           document.getElementById('result').textContent = 'エラーが発生しました';
         }
       })
       .catch(err => {
         inProgress = false;
-        document.getElementById('downloadBtn').disabled = false;
+        btn.disabled = false;
+        btn.textContent = '取得';
         document.getElementById('result').textContent = '通信エラー';
         console.error(err);
       });
