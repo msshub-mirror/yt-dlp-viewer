@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube風 Video.js プレイヤー</title>
+  <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #121212;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .video-container {
+      max-width: 960px;
+      margin: 0 auto;
+      background-color: #000;
+      transition: width 0.3s, height 0.3s;
+    }
+
+    .theater-mode {
+      width: 100% !important;
+      height: 90vh !important;
+    }
+
+    .vjs-default-skin .vjs-control-bar {
+      background: rgba(0, 0, 0, 0.7);
+    }
+
+    .vjs-default-skin .vjs-play-progress {
+      background-color: #cc0000;
+    }
+
+    .vjs-default-skin .vjs-load-progress {
+      background-color: #666;
+    }
+
+    .controls {
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    button {
+      padding: 8px 12px;
+      margin: 0 4px;
+      background-color: #cc0000;
+      border: none;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #ff0000;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="video-container" id="videoContainer">
+    <video id="myPlayer" class="video-js vjs-default-skin" controls preload="auto" width="960" height="540"
+      data-setup='{}'>
+      <source src="https://vjs.zencdn.net/v/oceans.mp4" type="video/mp4" />
+      <track kind="subtitles" src="https://cdn.jsdelivr.net/gh/videojs/video.js@main/docs/examples/shared/example-captions.vtt" srclang="en" label="English" default>
+    </video>
+  </div>
+
+  <div class="controls">
+    <button onclick="toggleTheaterMode()">シアターモード切替</button>
+    <button onclick="enterPiP()">PiPモード</button>
+    <label for="speedSelect">再生速度:</label>
+    <select id="speedSelect" onchange="setPlaybackRate()">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="1.5">1.5x</option>
+      <option value="2">2x</option>
+    </select>
+  </div>
+
+  <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+  <script>
+    const player = videojs('myPlayer');
+
+    // 再生速度変更
+    function setPlaybackRate() {
+      const rate = parseFloat(document.getElementById('speedSelect').value);
+      player.playbackRate(rate);
+    }
+
+    // ピクチャインピクチャ
+    function enterPiP() {
+      const videoEl = player.tech().el();
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture();
+      } else if (videoEl.requestPictureInPicture) {
+        videoEl.requestPictureInPicture();
+      }
+    }
+
+    // シアターモード切替
+    function toggleTheaterMode() {
+      const container = document.getElementById('videoContainer');
+      container.classList.toggle('theater-mode');
+    }
+  </script>
+
+</body>
+</html>
