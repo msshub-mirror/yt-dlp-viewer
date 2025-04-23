@@ -2,18 +2,39 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>動画再生テスト</title>
+  <title>YouTube動画ダウンローダー</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 2em; }
-    input { width: 60%; padding: 0.5em; }
-    button { padding: 0.5em 1em; margin: 0.5em; }
-    video { margin-top: 20px; width: 80%; max-width: 720px; }
-    #progressContainer {
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+      background-color: #f9f9f9;
+    }
+    input, button {
+      padding: 0.6em;
+      margin: 0.5em;
+      font-size: 16px;
+    }
+    input {
+      width: 60%;
+      max-width: 500px;
+    }
+    button {
+      cursor: pointer;
+    }
+    video {
       margin-top: 20px;
       width: 80%;
-      background: #eee;
+      max-width: 720px;
+    }
+    #progressContainer {
+      margin: 1em auto;
+      width: 80%;
+      max-width: 500px;
+      background: #ddd;
       height: 20px;
-      position: relative;
+      border-radius: 4px;
+      overflow: hidden;
       display: none;
     }
     #progressBar {
@@ -31,12 +52,29 @@
       margin-right: auto;
       text-align: left;
       display: none;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 1em;
+      border-radius: 4px;
+    }
+    #videoLink {
+      margin-top: 1em;
+    }
+    a.button-link {
+      display: inline-block;
+      padding: 0.5em 1em;
+      background: #2196f3;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      margin-top: 1em;
     }
   </style>
 </head>
 <body>
   <h1>YouTube動画プレイヤー</h1>
-  <h3>読み込みに時間がかかることがあります</h3>
+  <p>動画のダウンロードとキャッシュには時間がかかることがあります。</p>
+
   <input type="text" id="url" placeholder="YouTubeのURLを入力">
   <br>
   <button id="downloadBtn" onclick="download()">動画を取得</button>
@@ -45,8 +83,10 @@
   <div id="progressContainer">
     <div id="progressBar"></div>
   </div>
+
   <div id="log"></div>
   <div id="result"></div>
+  <div id="videoLink"></div>
 
   <script>
     const API = 'https://yt-dlp-server-c2fo.onrender.com/download';
@@ -84,6 +124,8 @@
       document.getElementById('progressBar').style.width = '0%';
       document.getElementById('progressContainer').style.display = 'block';
       document.getElementById('log').textContent = '';
+      document.getElementById('result').innerHTML = '';
+      document.getElementById('videoLink').innerHTML = '';
 
       const socket = new WebSocket(WS_URL);
       socket.onopen = () => {
@@ -109,11 +151,15 @@
           document.getElementById('downloadBtn').disabled = false;
 
           if (msg.success) {
+            const videoUrl = `https://yt-dlp-server-c2fo.onrender.com${msg.videoUrl}?t=${Date.now()}`;
             document.getElementById('result').innerHTML = `
               <h2>ビデオ：</h2>
               <video controls>
-                <source src="https://yt-dlp-server-c2fo.onrender.com${msg.videoUrl}?t=${Date.now()}" type="video/mp4">
+                <source src="${videoUrl}" type="video/mp4">
               </video>
+            `;
+            document.getElementById('videoLink').innerHTML = `
+              <a class="button-link" href="${videoUrl}" target="_blank">動画リンクを開く</a>
             `;
           } else {
             document.getElementById('result').textContent = '動画の取得に失敗しました';
