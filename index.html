@@ -224,9 +224,11 @@
   }
 
   function replayFromHistory(videoId) {
-      document.getElementById('url').value = `https://www.youtube.com/watch?v=${videoId}`;
-      download();
-    }
+  document.getElementById('sideHistory').classList.remove('open');
+  document.getElementById('url').value = `https://www.youtube.com/watch?v=${videoId}`;
+  download();
+}
+
 
     function download() {
       if (inProgress) {
