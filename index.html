@@ -1,201 +1,320 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>動画ダウンロード & メタ表示</title>
-
-<style>
-:root { color-scheme: light dark; }
-body{font-family:sans-serif;margin:0;padding-top:50px;background:#f0f0f5;color:#333}
-@media(prefers-color-scheme:dark){
-  body{background:#121212;color:#eee}
-  header{background:#222}
-  .input-container input,.input-container button{background:#333;color:#eee;border-color:#444}
-}
-header{position:fixed;top:0;width:100%;background:#007bff;display:flex;flex-direction:column;z-index:1000}
-.input-container{display:flex;padding:8px;max-width:800px;margin:0 auto;width:100%}
-.input-container input{flex:1;padding:10px;font-size:16px;border:1px solid #ccc;border-radius:4px 0 0 4px}
-.input-container button{padding:10px 16px;font-size:16px;border:none;border-radius:0 4px 4px 0;cursor:pointer;background:#0056b3;color:#fff}
-#progressContainer{height:3px;background:#ccc;width:100%}
-#progressBar{height:100%;width:0%;background:#28a745;transition:width .3s ease}
-#log{position:fixed;top:55px;right:0;width:300px;max-height:90vh;background:rgba(0,0,0,.8);color:#fff;font-size:13px;
-      padding:10px;overflow-y:auto;display:none;z-index:1001}
-#result,#videoLink,#videoInfo{max-width:800px;margin:1em auto;text-align:center}
-video{margin-top:20px;width:100%;max-width:720px}
-.button-link{display:inline-block;margin-top:10px;background:#2196f3;color:#fff;padding:.5em 1em;border-radius:4px;text-decoration:none}
-
-/* ---------- 情報表示 ---------- */
-.info-title{font-size:20px;font-weight:700;margin:.5em 0}
-.info-meta{font-size:14px;color:#666;margin-bottom:.3em}
-body.dark .info-meta{color:#aaa}
-.info-desc{white-space:pre-wrap;font-size:14px;margin-top:.5em}
-#descToggle{color:#2196f3;cursor:pointer;font-size:14px;margin-top:.2em}
-.comment{border-bottom:1px solid #ddd;padding:.7em 0;font-size:14px;text-align:left}
-.comment:last-child{border:none}
-body.dark .comment{border-color:#333}
-.comment-author{font-weight:600;margin-bottom:.2em}
-.comment-likes{font-size:12px;color:#999}
-body.dark .comment-likes{color:#777}
-</style>
-</head>
-
-<body>
-<header>
-  <div class="input-container">
-    <input type="text" id="url" placeholder="YouTube の URL を入力">
-    <button onclick="download()" id="downloadBtn">取得</button>
-    <button onclick="toggleLog()" id="toggleLogBtn">ログ</button>
-  </div>
-  <div id="progressContainer"><div id="progressBar"></div></div>
-</header>
-
-<div id="log"></div>
-<div id="result"></div>
-<div id="videoLink"></div>
-<div id="videoInfo"></div>
-
-<script>
-/* ----------- 設定 ----------- */
-const SERVER      = location.origin;               // 同一ホストで動かす想定
-const API_DL      = SERVER + '/download';
-const API_INFO    = SERVER + '/info';
-const WS_URL      = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
-let   inProgress  = false;
-let   logVisible  = false;
-
-/* ----------- 共通 ---------- */
-function extractVideoId(url){
-  const m = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-  return m ? m[1] : null;
-}
-function toggleLog(){
-  logVisible = !logVisible;
-  document.getElementById('log').style.display = logVisible ? 'block':'none';
-  document.getElementById('toggleLogBtn').textContent = logVisible ? '非表示' : 'ログ';
-}
-
-/* =================================================
-   ダウンロード + メタ情報取得
-   ================================================= */
-function download(){
-  if(inProgress){ alert('ダウンロード中です'); return; }
-
-  const url = document.getElementById('url').value.trim();
-  const id  = extractVideoId(url);
-  if(!id){ alert('正しい URL を入力してください'); return; }
-
-  inProgress = true;
-  const btn  = document.getElementById('downloadBtn');
-  btn.disabled = true; btn.textContent = '取得中…';
-  document.getElementById('progressBar').style.width = '0%';
-  document.getElementById('progressContainer').style.display = 'block';
-  document.getElementById('log').textContent = '';
-  document.getElementById('result').innerHTML = '';
-  document.getElementById('videoLink').innerHTML = '';
-  document.getElementById('videoInfo').innerHTML = '';
-
-  /* ---------- WebSocket で進捗 ---------- */
-  const ws = new WebSocket(WS_URL);
-  ws.onopen = () => ws.send(JSON.stringify({ id })) ;
-  ws.onmessage = ev => {
-    const msg = JSON.parse(ev.data);
-    if(msg.progress){
-      document.getElementById('log').textContent += msg.progress;
-      const m = msg.progress.match(/(\d{1,3}\.\d)%/);
-      if(m){ document.getElementById('progressBar').style.width = Math.min(+m[1],100)+'%'; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>動画ダウンロード</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding-top: 50px;
+      background-color: #f0f0f5;
+      color: #333;
     }
-    if(msg.done){
-      ws.close();
-      finishDownload(msg, id);
-    }
-  };
-
-  /* ---------- REST: /download ---------- */
-  fetch(API_DL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) })
-    .then(r=>r.json())
-    .then(d=>{ if(!d.success) alert('DL エラー'); })
-    .catch(err=> console.error(err));
-
-  /* ---------- 先にメタ情報も取得 ---------- */
-  fetch(API_INFO, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) })
-    .then(r=>r.json())
-    .then(d=>{ if(d.success) renderInfo(d.info); })
-    .catch(console.error);
-}
-
-/* ---------- DL 終了後 ---------- */
-function finishDownload(msg, id){
-  inProgress = false;
-  const btn = document.getElementById('downloadBtn');
-  btn.disabled = false; btn.textContent = '取得';
-  document.getElementById('progressContainer').style.display = 'none';
-
-  if(msg.success){
-    const videoUrl = SERVER + msg.videoUrl + '?t=' + Date.now();
-    document.getElementById('result').innerHTML =
-      `<video controls><source src="${videoUrl}" type="video/mp4"></video>`;
-    document.getElementById('videoLink').innerHTML =
-      `<a href="${videoUrl}" class="button-link" target="_blank">動画リンクを開く</a>`;
-  }else{
-    document.getElementById('result').textContent = '動画取得に失敗しました';
-  }
-}
-
-/* =================================================
-   メタ情報の描画
-   ================================================= */
-function renderInfo(info){
-  /* ---------- 概要欄の折りたたみ ---------- */
-  const shortDesc = info.description.slice(0,150);
-  const isLong    = info.description.length > 150;
-
-  const html = `
-    <div class="info-title">${info.title}</div>
-    <div class="info-meta">
-      視聴回数 ${info.view_count.toLocaleString()} 回　
-      投稿日 ${formatDate(info.upload_date)}　
-      👍 ${info.like_count?.toLocaleString() ?? '-'}
-    </div>
-    <div class="info-meta">
-      チャンネル: <a href="${info.channel_url}" target="_blank">${info.uploader}</a>
-      （登録者 ${info.subscriber_count?.toLocaleString() ?? '-'} 人）
-    </div>
-    <div class="info-desc" id="description">${isLong ? shortDesc : info.description}</div>
-    ${isLong ? '<div id="descToggle">もっと見る</div>' : ''}
-    <hr>
-    <div style="text-align:left;font-weight:600;margin:.4em 0">コメント</div>
-    ${renderComments(info.comments)}
-  `;
-  document.getElementById('videoInfo').innerHTML = html;
-
-  if(isLong){
-    document.getElementById('descToggle').onclick = () => {
-      const desc = document.getElementById('description');
-      const toggle = document.getElementById('descToggle');
-      if(toggle.textContent === 'もっと見る'){
-        desc.textContent = info.description;
-        toggle.textContent = '閉じる';
-      }else{
-        desc.textContent = shortDesc;
-        toggle.textContent = 'もっと見る';
+    @media (prefers-color-scheme: dark) {
+      body { background-color: #121212; color: #eee; }
+      header { background-color: #222; }
+      .input-container input, .input-container button {
+        background-color: #333;
+        color: #eee;
+        border-color: #444;
       }
-    };
+    }
+    header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background-color: #007bff;
+      display: flex;
+      justify-content: center;
+      z-index: 1000;
+      flex-direction: column;
+    }
+    .input-container {
+      display: flex;
+      padding: 8px;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .input-container input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px 0 0 4px;
+    }
+    .input-container button {
+      padding: 10px 16px;
+      font-size: 16px;
+      border: none;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+      background-color: #0056b3;
+      color: white;
+    }
+    #progressContainer {
+      height: 3px;
+      background: #ccc;
+      width: 100%;
+    }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background-color: #28a745;
+      transition: width 0.3s ease;
+    }
+    #log {
+      position: fixed;
+      top: 55px;
+      right: 0;
+      width: 300px;
+      max-height: 90vh;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-size: 13px;
+      padding: 10px;
+      overflow-y: auto;
+      display: none;
+      z-index: 1001;
+    }
+    #result, #videoLink, #history {
+      max-width: 800px;
+      margin: 1em auto;
+      text-align: center;
+    }
+    video {
+      margin-top: 20px;
+      width: 100%;
+      max-width: 720px;
+    }
+    .button-link {
+      display: inline-block;
+      margin-top: 10px;
+      background: #2196f3;
+      color: white;
+      padding: 0.5em 1em;
+      border-radius: 4px;
+      text-decoration: none;
+    }
+    .history-item {
+      font-size: 14px;
+      margin: 0.5em 0;
+    }
+      #sideHistory {
+    position: fixed;
+    top: 50px;
+    left: -260px;
+    width: 260px;
+    height: 100%;
+    background-color: #f5f5f5;
+    border-right: 1px solid #ccc;
+    overflow-y: auto;
+    transition: left 0.3s ease;
+    z-index: 1002;
   }
+  body.dark #sideHistory {
+    background-color: #1a1a1a;
+    border-color: #333;
+  }
+  #sideHistory.open {
+    left: 0;
+  }
+  #sideToggleBtn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 24px;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    z-index: 1003;
+  }
+  .side-thumb {
+    cursor: pointer;
+    margin: 10px;
+    text-align: center;
+  }
+  .side-thumb img {
+    border-radius: 4px;
+  }
+  .side-thumb span {
+    font-size: 11px;
+    color: #666;
+  }
+  body.dark .side-thumb span {
+    color: #aaa;
+  }
+  </style>
+</head>
+<body>
+  <header>
+    <button id="sideToggleBtn" onclick="toggleSide()">≡</button>
+    <div class="input-container">
+      <input type="text" id="url" placeholder="YouTubeのURLを入力">
+      <button onclick="download()" id="downloadBtn">取得</button>
+      <button onclick="toggleLog()" id="toggleLogBtn">ログ</button>
+    </div>
+    <div id="progressContainer"><div id="progressBar"></div></div>
+  </header>
+  <div id="sideHistory"></div>
+
+  <div id="log"></div>
+  <div id="result"></div>
+  <div id="videoLink"></div>
+  
+
+  <script>
+    const API = 'https://yt-dlp-server-c2fo.onrender.com/download';
+    const WS_URL = 'wss://yt-dlp-server-c2fo.onrender.com';
+    let inProgress = false;
+    let logVisible = false;
+    function toggleSide() {
+      document.getElementById('sideHistory').classList.toggle('open');
+    }
+
+    function extractVideoId(url) {
+      const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+      return match ? match[1] : null;
+    }
+
+    function toggleLog() {
+      logVisible = !logVisible;
+      const log = document.getElementById('log');
+      log.style.display = logVisible ? 'block' : 'none';
+      document.getElementById('toggleLogBtn').textContent = logVisible ? '非表示' : 'ログ';
+    }
+
+    function addToHistory(videoId) {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      history.unshift({ id: videoId, time: new Date().toLocaleString() });
+      localStorage.setItem('history', JSON.stringify(history.slice(0, 20)));
+      renderHistory();
+    }
+
+  function renderHistory() {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      const side = document.getElementById('sideHistory');
+      if (history.length === 0) {
+        side.innerHTML = '<p style="padding: 10px;">履歴はありません</p>';
+        return;
+      }
+      side.innerHTML = `
+        <div style="padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <strong>履歴</strong>
+          <button onclick="clearHistory()" style="font-size: 12px;">削除</button>
+        </div>
+        ${history.map(item => `
+          <div class="side-thumb" onclick="replayFromHistory('${item.id}')">
+            <img src="https://i.ytimg.com/vi/${item.id}/mqdefault.jpg" width="120"><br>
+            <span>${item.time}</span>
+          </div>
+        `).join('')}
+      `;
+    }
+
+  function clearHistory() {
+    if (confirm('履歴をすべて削除しますか？')) {
+      localStorage.removeItem('history');
+      renderHistory();
+    }
+  }
+
+  function replayFromHistory(videoId) {
+  document.getElementById('sideHistory').classList.remove('open');
+  document.getElementById('url').value = `https://www.youtube.com/watch?v=${videoId}`;
+  download();
 }
 
-function formatDate(yyyymmdd){
-  return `${yyyymmdd.slice(0,4)}-${yyyymmdd.slice(4,6)}-${yyyymmdd.slice(6)}`;
-}
-function renderComments(comments=[]){
-  if(!comments.length) return '<div>コメントは取得できませんでした</div>';
-  return comments.map(c=>`
-    <div class="comment">
-      <div class="comment-author">${c.author}</div>
-      <div>${c.text}</div>
-      <div class="comment-likes">👍 ${c.likes.toLocaleString()}　${c.published}</div>
-    </div>`).join('');
-}
-</script>
+
+    function download() {
+      if (inProgress) {
+        alert("ダウンロード中です。しばらくお待ちください。");
+        return;
+      }
+
+      const url = document.getElementById('url').value;
+      const videoId = extractVideoId(url);
+      if (!videoId) {
+        alert("正しいYouTubeのURLを入力してください。");
+        return;
+      }
+
+      inProgress = true;
+      const btn = document.getElementById('downloadBtn');
+      btn.disabled = true;
+      btn.textContent = '取得中…';
+      document.getElementById('progressContainer').style.display = 'block';
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('log').textContent = '';
+      document.getElementById('result').innerHTML = '';
+      document.getElementById('videoLink').innerHTML = '';
+
+      const socket = new WebSocket(WS_URL);
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ id: videoId }));
+      };
+
+      socket.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.progress) {
+          document.getElementById('log').textContent += msg.progress;
+          const match = msg.progress.match(/(\d{1,3}\.\d)%/);
+          if (match) {
+            const percent = Math.min(parseFloat(match[1]), 100);
+            document.getElementById('progressBar').style.width = percent + '%';
+          }
+        }
+
+        if (msg.done) {
+          inProgress = false;
+          btn.disabled = false;
+          btn.textContent = '取得';
+          document.getElementById('progressContainer').style.display = 'none';
+
+          if (msg.success) {
+            const videoUrl = `https://yt-dlp-server-c2fo.onrender.com${msg.videoUrl}?t=${Date.now()}`;
+            document.getElementById('result').innerHTML = `
+              <video controls><source src="${videoUrl}" type="video/mp4"></video>
+            `;
+            document.getElementById('videoLink').innerHTML = `
+              <a href="${videoUrl}" class="button-link" target="_blank">動画リンクを開く</a>
+            `;
+            addToHistory(videoId, videoUrl);
+          } else {
+            document.getElementById('result').textContent = '動画の取得に失敗しました。';
+          }
+          socket.close();
+        }
+      };
+
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) {
+          inProgress = false;
+          btn.disabled = false;
+          btn.textContent = '取得';
+          document.getElementById('result').textContent = 'エラーが発生しました';
+        }
+      })
+      .catch(err => {
+        inProgress = false;
+        btn.disabled = false;
+        btn.textContent = '取得';
+        document.getElementById('result').textContent = '通信エラー';
+        console.error(err);
+      });
+    }
+
+    window.onload = renderHistory;
+  </script>
 </body>
 </html>
